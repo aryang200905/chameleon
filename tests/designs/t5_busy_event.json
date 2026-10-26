@@ -1,0 +1,200 @@
+{
+ "task_id": "t5",
+ "source": {
+  "canvas": {
+   "width": 1080,
+   "height": 1080
+  },
+  "elements": [
+   {
+    "id": "bg",
+    "type": "image",
+    "x": 0,
+    "y": 0,
+    "z_index": 0,
+    "asset_id": "solstice_bg_gradient.png",
+    "fit": "cover",
+    "width": 1080,
+    "height": 1080
+   },
+   {
+    "id": "spark_1",
+    "type": "shape",
+    "x": 80,
+    "y": 300,
+    "width": 40,
+    "height": 40,
+    "z_index": 1,
+    "shape_type": "ellipse",
+    "fill_color": "rgba(240,178,66,1)",
+    "opacity": 0.6,
+    "group_id": "sparks"
+   },
+   {
+    "id": "spark_2",
+    "type": "shape",
+    "x": 140,
+    "y": 360,
+    "width": 24,
+    "height": 24,
+    "z_index": 1,
+    "shape_type": "ellipse",
+    "fill_color": "rgba(240,178,66,1)",
+    "opacity": 0.5,
+    "group_id": "sparks"
+   },
+   {
+    "id": "logo",
+    "type": "image",
+    "x": 60,
+    "y": 50,
+    "width": 240,
+    "height": 80,
+    "z_index": 3,
+    "asset_id": "solstice_logo_lockup.png",
+    "fit": "contain"
+   },
+   {
+    "id": "date",
+    "type": "text",
+    "x": 700,
+    "y": 70,
+    "width": 320,
+    "height": 40,
+    "z_index": 3,
+    "content": "21.06.2026",
+    "font_family": "Solstice Sans",
+    "font_size": 26,
+    "font_weight": "bold",
+    "color": "rgba(240,178,66,1)",
+    "text_align": "right"
+   },
+   {
+    "id": "headline",
+    "type": "text",
+    "x": 60,
+    "y": 180,
+    "width": 960,
+    "height": 140,
+    "z_index": 3,
+    "content": "The Solstice Night Market",
+    "font_family": "Solstice Serif",
+    "font_size": 68,
+    "font_weight": "bold",
+    "color": "rgba(255,255,255,1)",
+    "text_align": "left"
+   },
+   {
+    "id": "rule",
+    "type": "shape",
+    "x": 60,
+    "y": 350,
+    "width": 960,
+    "height": 4,
+    "z_index": 2,
+    "shape_type": "line",
+    "fill_color": "rgba(255,255,255,0.5)",
+    "stroke_color": "rgba(255,255,255,0.5)",
+    "stroke_width": 3
+   },
+   {
+    "id": "product",
+    "type": "image",
+    "x": 600,
+    "y": 400,
+    "width": 420,
+    "height": 420,
+    "z_index": 3,
+    "asset_id": "solstice_bottle.png",
+    "fit": "contain"
+   },
+   {
+    "id": "l1",
+    "type": "text",
+    "x": 60,
+    "y": 410,
+    "width": 500,
+    "height": 40,
+    "z_index": 3,
+    "content": "Live music from 6pm",
+    "font_family": "Solstice Sans",
+    "font_size": 28,
+    "color": "rgba(255,255,255,1)",
+    "text_align": "left"
+   },
+   {
+    "id": "l2",
+    "type": "text",
+    "x": 60,
+    "y": 470,
+    "width": 500,
+    "height": 40,
+    "z_index": 3,
+    "content": "Street food & tastings",
+    "font_family": "Solstice Sans",
+    "font_size": 28,
+    "color": "rgba(255,255,255,1)",
+    "text_align": "left"
+   },
+   {
+    "id": "l3",
+    "type": "text",
+    "x": 60,
+    "y": 530,
+    "width": 500,
+    "height": 40,
+    "z_index": 3,
+    "content": "Free entry, all ages",
+    "font_family": "Solstice Sans",
+    "font_size": 28,
+    "color": "rgba(255,255,255,1)",
+    "text_align": "left"
+   },
+   {
+    "id": "btn",
+    "type": "shape",
+    "x": 60,
+    "y": 880,
+    "width": 360,
+    "height": 80,
+    "z_index": 3,
+    "shape_type": "rectangle",
+    "fill_color": "rgba(232,106,58,1)",
+    "corner_radius": 40
+   },
+   {
+    "id": "btn_text",
+    "type": "text",
+    "x": 60,
+    "y": 902,
+    "width": 360,
+    "height": 36,
+    "z_index": 4,
+    "content": "Get your ticket",
+    "font_family": "Solstice Sans",
+    "font_size": 24,
+    "font_weight": "bold",
+    "color": "rgba(255,255,255,1)",
+    "text_align": "center"
+   },
+   {
+    "id": "venue",
+    "type": "text",
+    "x": 60,
+    "y": 1000,
+    "width": 960,
+    "height": 30,
+    "z_index": 3,
+    "content": "Riverside Gardens, Madison. Tickets subject to availability; see site for terms.",
+    "font_family": "Solstice Sans",
+    "font_size": 14,
+    "color": "rgba(255,255,255,0.6)",
+    "text_align": "left"
+   }
+  ]
+ },
+ "target_canvas": {
+  "width": 1500,
+  "height": 500
+ }
+}

@@ -1,0 +1,111 @@
+{
+ "task_id": "t1",
+ "source": {
+  "canvas": {
+   "width": 1200,
+   "height": 628
+  },
+  "elements": [
+   {
+    "id": "bg",
+    "type": "image",
+    "x": 0,
+    "y": 0,
+    "z_index": 0,
+    "asset_id": "solstice_bg_gradient.png",
+    "fit": "cover",
+    "width": 1200,
+    "height": 628
+   },
+   {
+    "id": "logo",
+    "type": "image",
+    "x": 60,
+    "y": 50,
+    "width": 240,
+    "height": 80,
+    "z_index": 3,
+    "asset_id": "solstice_logo_lockup.png",
+    "fit": "contain"
+   },
+   {
+    "id": "eyebrow",
+    "type": "text",
+    "x": 70,
+    "y": 190,
+    "width": 600,
+    "height": 30,
+    "z_index": 3,
+    "content": "SUMMER COLLECTION 2026",
+    "font_family": "Solstice Sans",
+    "font_size": 20,
+    "font_weight": "bold",
+    "color": "rgba(240,178,66,1)",
+    "text_align": "left",
+    "letter_spacing": 2
+   },
+   {
+    "id": "headline",
+    "type": "text",
+    "x": 70,
+    "y": 230,
+    "width": 700,
+    "height": 150,
+    "z_index": 3,
+    "content": "Golden hour, bottled.",
+    "font_family": "Solstice Serif",
+    "font_size": 64,
+    "font_weight": "bold",
+    "color": "rgba(255,255,255,1)",
+    "text_align": "left"
+   },
+   {
+    "id": "body",
+    "type": "text",
+    "x": 70,
+    "y": 400,
+    "width": 620,
+    "height": 60,
+    "z_index": 3,
+    "content": "Four new botanical flavours, brewed in small batches with real citrus and wild herbs.",
+    "font_family": "Solstice Sans",
+    "font_size": 20,
+    "color": "rgba(255,255,255,0.85)",
+    "text_align": "left"
+   },
+   {
+    "id": "btn",
+    "type": "shape",
+    "x": 70,
+    "y": 500,
+    "width": 260,
+    "height": 64,
+    "z_index": 2,
+    "shape_type": "rectangle",
+    "fill_color": "rgba(232,106,58,1)",
+    "corner_radius": 32,
+    "group_id": "cta"
+   },
+   {
+    "id": "btn_label",
+    "type": "text",
+    "x": 70,
+    "y": 518,
+    "width": 260,
+    "height": 30,
+    "z_index": 3,
+    "content": "Discover more",
+    "font_family": "Solstice Sans",
+    "font_size": 20,
+    "font_weight": "bold",
+    "color": "rgba(255,255,255,1)",
+    "text_align": "center",
+    "group_id": "cta"
+   }
+  ]
+ },
+ "target_canvas": {
+  "width": 1080,
+  "height": 1920
+ }
+}

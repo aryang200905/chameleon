@@ -1,0 +1,9 @@
+.venv/
+venv/
+.git/
+output/
+tests/
+tools/
+**/__pycache__/
+*.pdf
+.DS_Store
