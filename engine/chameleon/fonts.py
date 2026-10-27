@@ -7,6 +7,7 @@ same skia calls and the same wrap rule, so a size we pick here wraps and
 renders exactly as we predicted.
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
@@ -15,13 +16,64 @@ ROOT = Path(__file__).resolve().parents[2]
 FONTS_DIR = ROOT / "brand_kit" / "fonts"
 
 _BOLD = {"bold", "semibold", "extrabold", "black"}
+_WEIGHTS = {"thin", "light", "extralight", "regular", "medium", "semibold", "bold", "extrabold", "black"}
+_STYLES = {"regular", "bold", "italic", "bolditalic"}
+
+
+class _BrandFonts:
+    """Mirror of renderer/converter/brand_fonts.py + cr_renderer FontManager
+    lookup rules, without importing cr_renderer (whose import chain pulls in
+    datasets/pyarrow, which can crash under amd64 emulation). Same files,
+    same family normalisation, same weight/style fallbacks."""
+
+    _CAMEL = re.compile(r"(?<!^)(?=[A-Z])")
+
+    def __init__(self, fonts_dir):
+        self._fonts = {}
+        for path in sorted(Path(fonts_dir).glob("*")):
+            if path.suffix.lower() not in (".ttf", ".otf"):
+                continue
+            prefix, _, suffix = path.stem.partition("-")
+            family = self._CAMEL.sub(" ", prefix).strip()
+            suffix = suffix or "Regular"
+            italic = "italic" in suffix.lower()
+            wt = re.sub("italic", "", suffix, flags=re.IGNORECASE).strip().lower() or "regular"
+            wt = wt if wt in _WEIGHTS else "regular"
+            st = ("bolditalic" if wt == "bold" else "italic") if italic else ("bold" if wt == "bold" else "regular")
+            self._fonts.setdefault(self._norm(family), []).append(
+                {"fontFamily": family, "fontWeight": wt, "fontStyle": st, "bytes": path.read_bytes()})
+        if not self._fonts:
+            raise FileNotFoundError(fonts_dir)
+
+    @staticmethod
+    def _norm(name):
+        name = name.replace("_", " ").title()
+        for token in (" Bold", " Regular", " Light", " Italic", " Medium"):
+            name = name.replace(token, "")
+        return name
+
+    def lookup(self, family_name, weight="regular", style="regular"):
+        fam = None
+        for name in (family_name, "Montserrat"):
+            fam = self._fonts.get(self._norm(name))
+            if fam:
+                break
+        if not fam:
+            fam = next(iter(self._fonts.values()))
+        last = family_name.replace("_", " ").lower().split(" ")[-1]
+        weight = last if last in _WEIGHTS else weight
+        style = last if last in _STYLES else style
+        for f in fam:
+            if f["fontWeight"] == weight and f["fontStyle"] == style:
+                return f["bytes"]
+        return fam[0]["bytes"]
+
 
 try:  # pragma: no cover - exercised implicitly
     import skia  # type: ignore
-    from renderer.converter.brand_fonts import load_brand_font_manager
 
-    _FM = load_brand_font_manager(str(FONTS_DIR))
-except Exception:  # skia / renderer unavailable -> heuristic metrics
+    _FM = _BrandFonts(FONTS_DIR)
+except Exception:  # skia / fonts unavailable -> heuristic metrics
     skia = None
     _FM = None
 

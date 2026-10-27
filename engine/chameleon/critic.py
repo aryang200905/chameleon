@@ -15,7 +15,6 @@ Stage 2 (pixels, top candidates only):
 """
 
 import math
-from pathlib import Path
 
 from . import fonts as F
 from .geometry import area, center, inter, union
@@ -176,31 +175,12 @@ def _lum(r, g, b):
     return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
 
 
-_RENDER = None
-
-
-def _renderer():
-    global _RENDER
-    if _RENDER is None:
-        from renderer.converter.convert import _get_renderer
-
-        root = Path(__file__).resolve().parents[2]
-        _RENDER = (_get_renderer(str(root / "brand_kit" / "fonts")), str(root / "brand_kit" / "assets"))
-    return _RENDER
-
-
 def render_backdrop(design, max_size=512):
-    """Render everything except text, with the official renderer."""
-    import io
+    """Everything except text, rasterised with the official pipeline's rules
+    (see backdrop.py) - no cr_renderer import needed."""
+    from .backdrop import render_backdrop as _rb
 
-    from PIL import Image
-
-    from renderer.converter.convert import convert_chameleon_to_crello
-
-    renderer, assets_dir = _renderer()
-    example, _ = convert_chameleon_to_crello(design, renderer.font_manager, assets_dir)
-    png = renderer.render(example, max_size=max_size, render_text=False, format="png")
-    return Image.open(io.BytesIO(png)).convert("RGB")
+    return _rb(design, max_size)
 
 
 def pixel(plan, design, ctx):

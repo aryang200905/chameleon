@@ -6,7 +6,7 @@ Give it a finished design and a target canvas; it returns the same design
 **re-laid-out** for that canvas: same element ids, same copy, same fonts, same
 assets, but new positions, sizes and type scale chosen the way a designer would.
 
-No model, no network, deterministic, ~0.1 s per design.
+No model, no network, deterministic, < 0.1 s per design.
 
 ```
 source design ─▶ 1. READ THE DNA ─▶ 2. PROPOSE ─▶ 3. CRITIQUE ─▶ 4. LOOK ─▶ 5. REPAIR ─▶ output
@@ -96,6 +96,16 @@ docker run --rm --network none -v "$(pwd)/input:/app/input" -v "$(pwd)/output:/a
 
 No extra dependencies beyond the starter `requirements.txt`.
 
+**Verified in Docker:** the full pipeline (engine + official renderer) runs
+offline (`--network none`) in a Linux container: 8 designs in < 2 s, no
+warnings. The engine itself imports **only skia + PIL**. It mirrors the
+renderer's font lookup and raster rules instead of importing `cr_renderer`,
+whose import chain (`datasets` → `pyarrow`) segfaults under QEMU amd64
+emulation on Apple Silicon. So `resize()` also runs under plain QEMU
+(~1 s/task). If you build the amd64 image on an Apple Silicon Mac, enable
+Docker Desktop → *Use Rosetta for x86_64/amd64 emulation* so the starter's
+PNG rendering step works too.
+
 ## How we tested it
 
 ```bash
@@ -122,6 +132,7 @@ engine/
     assets.py          visible (alpha) footprint of brand assets
     layout.py          blocks, flexible column, templates, extras placement
     critic.py          rubric-shaped scoring + render-in-the-loop pixel check
+    backdrop.py        PIL backdrop rasteriser mirroring the renderer's rules
     emit.py            back to the schema + hard-rule repair
     engine.py          generate -> critique -> render-check -> emit
 tools/                 local test harness (suite, fuzz) - not shipped in the image
