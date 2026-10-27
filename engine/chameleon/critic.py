@@ -183,14 +183,68 @@ def render_backdrop(design, max_size=512):
     return _rb(design, max_size)
 
 
-def pixel(plan, design, ctx):
-    """Adjust plan.score with contrast / busyness measured on real pixels."""
+CHIP_ROLES = ("cta", "badge", "sticker")
+
+
+def _measure(img, s, rect, color):
+    """(WCAG contrast, busyness) of a text colour over the pixels in rect."""
     from PIL import ImageStat
 
+    x0, y0 = max(0, int(rect[0] * s)), max(0, int(rect[1] * s))
+    x1, y1 = min(img.width, int((rect[0] + rect[2]) * s) + 1), min(img.height, int((rect[1] + rect[3]) * s) + 1)
+    if x1 - x0 < 2 or y1 - y0 < 2:
+        return None
+    st = ImageStat.Stat(img.crop((x0, y0, x1, y1)))
+    br, bg_, bb = st.mean[:3]
+    busy = sum(st.stddev[:3]) / 3.0 / 255.0
+    tr, tg, tb, ta = _rgba(color)
+    # text alpha blends toward the backdrop
+    tr, tg, tb = (tr * ta + br * (1 - ta), tg * ta + bg_ * (1 - ta), tb * ta + bb * (1 - ta))
+    l1, l2 = _lum(tr, tg, tb), _lum(br, bg_, bb)
+    return (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05), busy
+
+
+def _source_pixels(A):
+    """Contrast and busyness of every text in the source design: the
+    designer's own choices are the baseline, so a layout is only penalised
+    for making a text harder to read than the original made it. (Judged
+    absolutely, hiding a deliberately subtle text would erase its penalty
+    and beat keeping it.)"""
+    cached = getattr(A, "_src_pixels", None)
+    if cached is not None:
+        return cached
+    from .analyze import text_vis
+
+    out = {}
+    try:
+        design = {"canvas": {"width": A.W0, "height": A.H0}, "elements": [A.els[i] for i in A.order]}
+        img = render_backdrop(design)
+        s = img.width / A.W0
+        for eid in A.order:
+            e, u = A.els[eid], A.unit_of.get(eid)
+            if e.get("type") != "text" or u is None or e["rotation"]:
+                continue
+            if u.role in CHIP_ROLES and u.shape is not None:
+                sh = u.shape
+                rect = (sh["x"], sh["y"], sh["width"], sh["height"])
+            else:
+                rect = text_vis(e)
+            m = _measure(img, s, rect, e.get("color"))
+            if m:
+                out[eid] = m
+    except Exception:
+        out = {}
+    A._src_pixels = out
+    return out
+
+
+def pixel(plan, design, ctx):
+    """Adjust plan.score with contrast / busyness measured on real pixels."""
     try:
         img = render_backdrop(design)
     except Exception:
         return plan.score
+    src = _source_pixels(ctx.A)
     s = img.width / ctx.W
     els = {e["id"]: e for e in design["elements"]}
     vis = {uid: r for uid, role, r in plan.vis}
@@ -200,32 +254,26 @@ def pixel(plan, design, ctx):
         if uid in plan.dropped or eid not in els:
             continue
         e = els[eid]
-        if role in ("cta", "badge", "sticker"):
+        if role in CHIP_ROLES:
             # label sits on its own button shape: measure the button
             g = plan.geom[eid]
             rect = (g["x"], g["y"], g["w"], g["h"])
         else:
             rect = vis.get(uid) or (e["x"], e["y"], e["width"], e["height"])
-        x0, y0 = max(0, int(rect[0] * s)), max(0, int(rect[1] * s))
-        x1, y1 = min(img.width, int((rect[0] + rect[2]) * s) + 1), min(img.height, int((rect[1] + rect[3]) * s) + 1)
-        if x1 - x0 < 2 or y1 - y0 < 2:
+        m = _measure(img, s, rect, e.get("color"))
+        if m is None:
             continue
-        crop = img.crop((x0, y0, x1, y1))
-        st = ImageStat.Stat(crop)
-        br, bg_, bb = st.mean[:3]
-        busy = sum(st.stddev[:3]) / 3.0 / 255.0
-        tr, tg, tb, ta = _rgba(e.get("color"))
-        # text alpha blends toward the backdrop
-        tr, tg, tb = (tr * ta + br * (1 - ta), tg * ta + bg_ * (1 - ta), tb * ta + bb * (1 - ta))
-        l1, l2 = _lum(tr, tg, tb), _lum(br, bg_, bb)
-        cr = (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
+        cr, busy = m
         worst = min(worst, cr)
-        need = 3.0 if fs >= 24 else 4.5
+        need, calm = 3.0 if fs >= 24 else 4.5, 0.14
+        if eid in src:
+            need = min(need, 0.95 * src[eid][0])
+            calm = max(calm, src[eid][1] + 0.02)
         w = ROLE_W.get(role, 1.0)
         if cr < need:
             pen += w * 0.6 * (need - cr) / need
-        if busy > 0.14:
-            pen += w * 1.5 * (busy - 0.14)
+        if busy > calm:
+            pen += w * 1.5 * (busy - calm)
     plan.parts["contrast_min"] = round(worst, 2)
     plan.parts["pixel_pen"] = -round(pen, 3)
     plan.score -= pen

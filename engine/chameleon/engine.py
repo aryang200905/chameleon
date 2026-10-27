@@ -127,6 +127,7 @@ def run(source, target_canvas, debug=False):
         designs[id(p)] = emit(source, A, p, W, H)
         critic.pixel(p, designs[id(p)], ctx)
     best = max(top, key=lambda p: p.score)
+    best.considered = len(cands)
     if debug:
         return designs[id(best)], best, top, A
     return designs[id(best)]

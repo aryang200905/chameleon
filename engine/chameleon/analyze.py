@@ -247,7 +247,9 @@ def analyze(source):
 
     # ---- roles -------------------------------------------------------------
     for u in units:
-        if u.kind == "shape":
+        if area(u.box) <= 0:
+            u.role = "missing"  # zero-size: nothing to show, nothing to lay out
+        elif u.kind == "shape":
             sh = u.shape
             thin = sh.get("shape_type") == "rectangle" and sh["height"] <= 0.012 * H0 and sh["width"] >= 0.2 * W0
             u.role = "divider" if (sh.get("shape_type") == "line" or thin) and not sh["rotation"] else "decoration"
@@ -269,7 +271,7 @@ def analyze(source):
             u.children = [k.uid for k in kids]
 
     # images
-    imgs = [u for u in units if u.kind == "image"]
+    imgs = [u for u in units if u.kind == "image" and u.role != "missing"]
     logo = None
     named = [u for u in imgs if "logo" in str(u.image.get("asset_id", "")).lower()]
     if named:
@@ -294,7 +296,7 @@ def analyze(source):
             have_hero = True
 
     # texts
-    tunits = [u for u in units if u.kind == "text"]
+    tunits = [u for u in units if u.kind == "text" and u.role != "missing"]
     if tunits:
         def prom(u):
             t = u.text
@@ -318,7 +320,7 @@ def analyze(source):
                 u.role = "body"
 
     # chips
-    chips = [u for u in units if u.kind == "chip"]
+    chips = [u for u in units if u.kind == "chip" and u.role != "missing"]
     flat = [u for u in chips if not u.rotation]
     for u in chips:
         u.role = "sticker" if u.rotation else "badge"

@@ -87,7 +87,7 @@ class TextLayout(NamedTuple):
     ascent: float     # negative, skia convention
     descent: float
     cap: float
-    overflow: bool    # a single word is wider than the wrap width
+    overflow: bool    # a drawn line (long word or letter_spacing) is wider than the wrap width
 
 
 def _style(el):
@@ -116,14 +116,30 @@ def _font(family, weight, style, size):
     return skia.Font(_typeface(family, weight, style), size)
 
 
+@lru_cache(maxsize=50000)
+def _linear_font(family, weight, style, size):
+    f = skia.Font(_typeface(family, weight, style), size)
+    f.setLinearMetrics(True)
+    f.setSubpixel(True)
+    f.setHinting(skia.FontHinting.kNone)
+    return f
+
+
 @lru_cache(maxsize=200000)
 def _widths(family, weight, style, size, text):
+    """Per-glyph advances, conservative across platforms. The renderer's
+    default skia font is hinted on Linux (FreeType: small sizes up to ~8%
+    wider) and unhinted on macOS, and we cannot know where the official
+    render runs. Taking the wider of the two per glyph means greedy wrap
+    never predicts fewer lines than either platform will draw."""
     if not text:
         return ()
     if _FM is not None:
         try:
             font = _font(family, weight, style, size)
-            return tuple(font.getWidths(font.textToGlyphs(text)))
+            glyphs = font.textToGlyphs(text)
+            lin = _linear_font(family, weight, style, size)
+            return tuple(max(a, b) for a, b in zip(font.getWidths(glyphs), lin.getWidths(glyphs)))
         except Exception:
             pass
     factor = 0.58 if weight == "bold" else 0.53
@@ -170,14 +186,14 @@ def wrap(text, widths, max_width):
 @lru_cache(maxsize=200000)
 def _layout(content, family, weight, style, size, line_height, letter_spacing, wrap_w):
     widths = _widths(family, weight, style, size, content)
-    if letter_spacing:
-        widths = tuple(w + letter_spacing for w in widths)
+    # the renderer wraps on bare advance widths but draws each line with
+    # letter_spacing between glyphs, so wrap first and add spacing after
     wrapped = wrap(content, widths, wrap_w)
     line_widths = []
     start = 0
     for i, c in enumerate(wrapped + "\n"):
         if c == "\n":
-            line_widths.append(sum(widths[start:i]))
+            line_widths.append(sum(widths[start:i]) + letter_spacing * max(0, i - start - 1))
             start = i + 1
     n = max(1, len(line_widths))
     asc, desc, cap = _metrics(family, weight, style, size)

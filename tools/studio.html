@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chameleon Studio</title>
+<style>
+@font-face { font-family: "Solstice Serif"; src: url(/fonts/SolsticeSerif-Regular.ttf); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Solstice Serif"; src: url(/fonts/SolsticeSerif-Bold.ttf); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Solstice Serif"; src: url(/fonts/SolsticeSerif-Italic.ttf); font-weight: 400; font-style: italic; }
+@font-face { font-family: "Solstice Sans"; src: url(/fonts/SolsticeSans-Regular.ttf); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Solstice Sans"; src: url(/fonts/SolsticeSans-Bold.ttf); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Solstice Sans"; src: url(/fonts/SolsticeSans-Italic.ttf); font-weight: 400; font-style: italic; }
+@font-face { font-family: "Solstice Sans"; src: url(/fonts/SolsticeSans-BoldItalic.ttf); font-weight: 700; font-style: italic; }
+
+:root {
+  --bg: #131115; --panel: #1c1920; --line: #2e2933; --text: #eee8e1; --dim: #9c94a3;
+  --accent: #e86a3a; --accent-2: #f2b242; --good: #7fb88a;
+  --ease: cubic-bezier(.22,.8,.24,1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 14px/1.4 "Solstice Sans", system-ui, sans-serif; }
+button, select { font: inherit; color: inherit; }
+
+header { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.brand { font: 700 18px "Solstice Serif", serif; letter-spacing: .2px; white-space: nowrap; }
+.brand b { color: var(--accent); }
+select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.toggles { margin-left: auto; display: flex; gap: 8px; }
+.tog { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.tog[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.presets { display: flex; gap: 6px; padding: 10px 18px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+.chip { flex: none; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+  cursor: pointer; color: var(--dim); font-size: 12.5px; }
+.chip:hover { color: var(--text); }
+.chip.on { color: #fff; border-color: var(--accent); background: rgba(232,106,58,.15); }
+
+main { display: grid; grid-template-columns: 1fr 340px; height: calc(100% - 104px); }
+.stage { position: relative; overflow: auto; display: grid; place-items: center; padding: 48px;
+  background: radial-gradient(circle at 50% 40%, #1f1b23, var(--bg) 70%); }
+.readout { position: absolute; top: 14px; left: 18px; font-variant-numeric: tabular-nums; color: var(--dim); }
+.readout strong { color: var(--text); font-size: 16px; }
+.readout .snap { color: var(--accent-2); margin-left: 8px; }
+.hint { position: absolute; bottom: 14px; left: 18px; color: var(--dim); font-size: 12.5px; }
+
+.frame { position: relative; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+  transition: width .32s var(--ease), height .32s var(--ease); }
+.frame.dragging { transition: none; }
+.canvas { position: absolute; inset: 0; overflow: hidden; background: #fff; }
+.el { position: absolute; transform-origin: center center;
+  transition: left .42s var(--ease), top .42s var(--ease), width .42s var(--ease), height .42s var(--ease),
+              font-size .42s var(--ease), line-height .42s var(--ease), opacity .3s ease, border-radius .42s var(--ease); }
+.el.text { white-space: pre; overflow: visible; }
+.el img { width: 100%; height: 100%; display: block; }
+.el.missing { background: repeating-linear-gradient(45deg, #ccc 0 6px, #ddd 6px 12px); }
+.official { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; transition: opacity .25s; }
+.frame.show-official .official { opacity: 1; }
+
+.handle { position: absolute; z-index: 5; }
+.handle.r { top: 0; right: -14px; width: 14px; height: 100%; cursor: ew-resize; }
+.handle.b { left: 0; bottom: -14px; height: 14px; width: 100%; cursor: ns-resize; }
+.handle.rb { right: -18px; bottom: -18px; width: 22px; height: 22px; cursor: nwse-resize; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 4px rgba(232,106,58,.25); }
+.handle.r::after, .handle.b::after { content: ""; position: absolute; background: var(--accent); border-radius: 3px; opacity: .8; }
+.handle.r::after { width: 4px; height: 44px; top: calc(50% - 22px); left: 6px; }
+.handle.b::after { height: 4px; width: 44px; left: calc(50% - 22px); top: 6px; }
+
+.xray .box { position: absolute; border: 1.5px dashed; pointer-events: none; transition: all .42s var(--ease); }
+.xray .tag { position: absolute; top: -1px; left: -1px; transform: translateY(-100%); font: 700 10px/1 "Solstice Sans";
+  padding: 3px 5px; color: #111; white-space: nowrap; border-radius: 3px 3px 0 0; }
+
+aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 18px; }
+aside h2 { font: 700 13px "Solstice Sans"; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 22px 0 10px; }
+aside h2:first-child { margin-top: 0; }
+.big { font: 700 20px/1.25 "Solstice Serif", serif; }
+.sub { color: var(--dim); font-size: 12.5px; margin-top: 4px; }
+.finalist { display: grid; grid-template-columns: 1fr 44px; gap: 8px; align-items: center; margin: 6px 0; font-size: 12.5px; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 3px; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.finalist.win .bar i { background: var(--accent-2); }
+.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
+.meter { display: grid; grid-template-columns: 96px 1fr 44px; gap: 8px; align-items: center; margin: 5px 0; font-size: 12.5px; }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 9px; margin: 3px 4px 0 0; font-size: 12px; background: var(--line); }
+.empty { color: var(--dim); font-size: 12.5px; }
+
+.grid { position: absolute; inset: 0; overflow: auto; padding: 28px; display: none; background: var(--bg); z-index: 10;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 22px; align-content: start; }
+.grid.open { display: grid; }
+.card { cursor: pointer; }
+.card .thumb { height: 220px; display: grid; place-items: center; background: #19161c; border-radius: 10px; border: 1px solid var(--line); }
+.card:hover .thumb { border-color: var(--accent); }
+.card .mini { position: relative; overflow: hidden; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.card .mini .el { transition: none; }
+.card .label { margin-top: 8px; font-size: 13px; }
+.card .label span { color: var(--dim); margin-left: 6px; }
+
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } aside { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Chameleon <b>Studio</b></div>
+  <select id="design" aria-label="Design"></select>
+  <div class="toggles">
+    <button class="tog" id="xray" aria-pressed="false" title="Show the roles the engine inferred">X-ray</button>
+    <button class="tog" id="official" aria-pressed="false" title="Overlay the official renderer's output">Official render</button>
+    <button class="tog" id="all" aria-pressed="false">All formats</button>
+  </div>
+</header>
+<nav class="presets" id="presets"></nav>
+<main>
+  <section class="stage" id="stage">
+    <div class="readout" id="readout"></div>
+    <div class="frame" id="frame">
+      <div class="canvas" id="canvas"></div>
+      <img class="official" id="officialImg" alt="">
+      <div class="xray" id="xrayLayer"></div>
+      <div class="handle r" data-ax="x"></div>
+      <div class="handle b" data-ax="y"></div>
+      <div class="handle rb" data-ax="xy"></div>
+    </div>
+    <div class="hint">Drag the orange handles. The design re-lays itself out live; sizes snap to real platform formats.</div>
+    <div class="grid" id="grid"></div>
+  </section>
+  <aside id="why"></aside>
+</main>
+
+<script>
+const ROLE_COLORS = {
+  headline: "#f2b242", body: "#9fd3c7", cta: "#e86a3a", cta_text: "#e86a3a", logo: "#c5a3ff", hero: "#7fb88a",
+  badge: "#ff9fb2", sticker: "#ff7a7a", legal: "#a9a2ae", group: "#8fb3ff", decoration: "#5d5864",
+  panel: "#d8c9b3", divider: "#d8c9b3", accent: "#d8c9b3", background: "#444", missing: "#ff5555",
+};
+const PART_LABELS = { read: "Readability", hero: "Hero presence", logo: "Logo presence", fill: "Canvas fill",
+  coll: "Collisions", comp: "Composition", drop: "Stepped aside", hier: "Hierarchy", brand: "Brand ratio",
+  contrast_min: "Min contrast", pixel_pen: "Pixel penalty" };
+
+const $ = (id) => document.getElementById(id);
+const state = { source: null, w: 1080, h: 1080, out: null, scale: 1, dragging: false, catalogue: [] };
+
+function parseRgba(c) {
+  const m = /rgba?\(([^)]*)\)/.exec(c || "");
+  if (!m) return c || "#000";
+  const p = m[1].split(",").map(Number);
+  return `rgba(${p[0]},${p[1]},${p[2]},${p.length > 3 ? p[3] : 1})`;
+}
+
+function textHTML(e) {
+  const s = e._wrapped ?? e.content ?? "";
+  const runs = e.style_runs || [];
+  const esc = (t) => t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  if (!runs.length) return esc(s);
+  let html = "", cur = null, buf = "";
+  for (let i = 0; i < s.length; i++) {
+    const r = runs.find((r) => i >= r.start && i < r.end) || null;
+    if (r !== cur) {
+      if (buf) html += wrap(buf, cur);
+      buf = ""; cur = r;
+    }
+    buf += s[i];
+  }
+  return html + wrap(buf, cur);
+  function wrap(t, r) {
+    if (!r) return esc(t);
+    const st = [r.color ? `color:${parseRgba(r.color)}` : "",
+      r.font_weight ? `font-weight:${r.font_weight === "bold" ? 700 : 400}` : "",
+      r.font_style ? `font-style:${r.font_style}` : ""].join(";");
+    return `<span style="${st}">${esc(t)}</span>`;
+  }
+}
+
+function family(f) {
+  return /serif/i.test(f || "") && !/sans/i.test(f || "") ? '"Solstice Serif", serif' : '"Solstice Sans", sans-serif';
+}
+
+// Draw (or update in place, so CSS transitions animate) every element.
+function paint(root, design, scale, keyed) {
+  const nodes = keyed ? (root._nodes ||= {}) : {};
+  if (!keyed) root.innerHTML = "";
+  const seen = new Set();
+  for (const e of design.elements) {
+    seen.add(e.id);
+    let n = nodes[e.id];
+    if (!n) {
+      n = document.createElement("div");
+      n.className = "el " + e.type;
+      if (e.type === "image") {
+        const img = new Image();
+        img.onerror = () => { img.remove(); n.classList.add("missing"); };
+        img.src = "/assets/" + encodeURIComponent(e.asset_id);
+        n.appendChild(img);
+      }
+      nodes[e.id] = n;
+      root.appendChild(n);
+    }
+    const s = n.style;
+    s.left = e.x * scale + "px"; s.top = e.y * scale + "px";
+    s.width = e.width * scale + "px"; s.height = e.height * scale + "px";
+    s.zIndex = e.z_index ?? 0;
+    s.opacity = e.opacity ?? 1;
+    s.transform = e.rotation ? `rotate(${e.rotation}deg)` : "";
+    if (e.type === "text") {
+      const fs = e.font_size * scale;
+      s.fontFamily = family(e.font_family);
+      s.fontSize = fs + "px";
+      s.lineHeight = fs * (e.line_height || 1.2) + "px";
+      s.fontWeight = e.font_weight === "bold" ? 700 : 400;
+      s.fontStyle = e.font_style === "italic" ? "italic" : "normal";
+      s.color = parseRgba(e.color);
+      s.textAlign = e.text_align || "left";
+      s.letterSpacing = (e.letter_spacing || 0) * scale + "px";
+      const html = textHTML(e);
+      if (n._html !== html) { n.innerHTML = html; n._html = html; }
+    } else if (e.type === "shape") {
+      s.background = e.shape_type === "line" ? parseRgba(e.stroke_color || e.fill_color) : parseRgba(e.fill_color);
+      s.borderRadius = e.shape_type === "ellipse" ? "50%" : (e.corner_radius || 0) * scale + "px";
+    } else {
+      const img = n.querySelector("img");
+      if (img) img.style.objectFit = e.fit === "fill" ? "fill" : (e.fit || "contain");
+    }
+  }
+  for (const id of Object.keys(nodes)) if (!seen.has(id)) { nodes[id].remove(); delete nodes[id]; }
+}
+
+function paintXray(res, scale) {
+  const layer = $("xrayLayer");
+  layer.innerHTML = "";
+  if ($("xray").getAttribute("aria-pressed") !== "true" || !res.roles) return;
+  const units = {};
+  for (const e of res.design.elements) {
+    const r = res.roles[e.id];
+    if (!r || r.role === "background" || (e.opacity ?? 1) === 0) continue;
+    const u = (units[r.unit] ||= { role: r.role, x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
+    u.x0 = Math.min(u.x0, e.x); u.y0 = Math.min(u.y0, e.y);
+    u.x1 = Math.max(u.x1, e.x + e.width); u.y1 = Math.max(u.y1, e.y + e.height);
+  }
+  for (const [uid, u] of Object.entries(units)) {
+    const c = ROLE_COLORS[u.role] || "#fff";
+    const b = document.createElement("div");
+    b.className = "box";
+    Object.assign(b.style, { left: u.x0 * scale + "px", top: u.y0 * scale + "px",
+      width: (u.x1 - u.x0) * scale + "px", height: (u.y1 - u.y0) * scale + "px", borderColor: c });
+    b.innerHTML = `<span class="tag" style="background:${c}">${u.role}</span>`;
+    layer.appendChild(b);
+  }
+}
+
+function fmt(v) { return typeof v === "number" ? (Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2)) : v; }
+
+function paintWhy(res) {
+  const why = res.why || {};
+  const el = $("why");
+  if (why.fallback) { el.innerHTML = `<h2>Decision</h2><div class="big">Safe fit</div><div class="sub">${why.fallback}</div>`; return; }
+  const max = Math.max(...why.finalists.map((f) => f.score), 0.01);
+  const min = Math.min(...why.finalists.map((f) => f.score), 0);
+  const fin = why.finalists.map((f, i) => `
+    <div class="finalist ${i === 0 ? "win" : ""}"><div>${f.template}
+      <div class="bar"><i style="width:${Math.max(4, 100 * (f.score - min) / (max - min || 1))}%"></i></div></div>
+      <div class="num">${fmt(f.score)}</div></div>`).join("");
+  const parts = Object.entries(why.parts).map(([k, v]) => {
+    const unit = ["read", "hero", "logo", "fill"].includes(k);
+    const w = unit ? Math.max(0, Math.min(1, v)) * 100 : (k === "contrast_min" ? Math.min(1, v / 7) * 100 : Math.min(100, -v * 40));
+    return `<div class="meter"><div>${PART_LABELS[k] || k}</div><div class="bar"><i style="width:${w}%;${!unit && k !== "contrast_min" ? "background:#c0564a" : ""}"></i></div><div class="num">${fmt(v)}</div></div>`;
+  }).join("");
+  const stepped = why.stepped_aside.length
+    ? why.stepped_aside.map((s) => `<span class="pill" style="box-shadow: inset 3px 0 ${ROLE_COLORS[s.role] || "#fff"}">${s.unit} · ${s.role}</span>`).join("")
+    : `<div class="empty">Nothing — every element made it.</div>`;
+  el.innerHTML = `
+    <h2>Decision</h2>
+    <div class="big">${why.template}</div>
+    <div class="sub">Picked from ${why.considered ?? "?"} candidate layouts · type scale ×${why.scale} · ${why.align}-aligned DNA</div>
+    <h2>Finalists (rendered &amp; pixel-checked)</h2>${fin}
+    <h2>Critic</h2>${parts}
+    <h2>Stepped aside to make room</h2>${stepped}
+    ${why.missing.length ? `<h2>Missing assets, hidden</h2>${why.missing.map((m) => `<span class="pill">${m}</span>`).join("")}` : ""}`;
+}
+
+// --- layout requests: one in flight, latest size wins -----------------------
+let inflight = false, pending = null, renderTimer = null;
+async function relayout(w, h) {
+  if (inflight) { pending = [w, h]; return; }
+  inflight = true;
+  try {
+    const res = await fetch("/api/resize", { method: "POST", body: JSON.stringify({ source: state.source, width: w, height: h }) }).then((r) => r.json());
+    state.out = res;
+    apply();
+  } finally {
+    inflight = false;
+    if (pending) { const [pw, ph] = pending; pending = null; relayout(pw, ph); }
+  }
+}
+
+function apply() {
+  if (!state.out) return;
+  paint($("canvas"), state.out.design, state.scale, true);
+  paintXray(state.out, state.scale);
+  paintWhy(state.out);
+  clearTimeout(renderTimer);
+  if ($("official").getAttribute("aria-pressed") === "true" && !state.dragging) renderTimer = setTimeout(officialRender, 250);
+}
+
+async function officialRender() {
+  const design = state.out.design;
+  const { png } = await fetch("/api/render", { method: "POST", body: JSON.stringify({ design }) }).then((r) => r.json());
+  if (state.out.design === design) $("officialImg").src = "data:image/png;base64," + png;
+}
+
+function fitScale(w, h) {
+  const st = $("stage");
+  return Math.min((st.clientWidth - 120) / w, (st.clientHeight - 140) / h, 1.2);
+}
+
+function snapName(w, h) {
+  return state.catalogue.find(([, cw, ch]) => cw === w && ch === h)?.[0] || "";
+}
+
+function setSize(w, h, { refit = true, request = true } = {}) {
+  state.w = w; state.h = h;
+  if (refit) state.scale = fitScale(w, h);
+  const f = $("frame");
+  f.style.width = w * state.scale + "px";
+  f.style.height = h * state.scale + "px";
+  const g = (a, b) => (b ? g(b, a % b) : a), d = g(w, h);
+  const ratio = w / d <= 40 ? `${w / d}:${h / d}` : (w / h).toFixed(2) + ":1";
+  const name = snapName(w, h);
+  $("readout").innerHTML = `<strong>${w} × ${h}</strong> &nbsp;${ratio}${name ? `<span class="snap">${name}</span>` : ""}`;
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", +c.dataset.w === w && +c.dataset.h === h));
+  if (request) relayout(w, h);
+  else apply();
+}
+
+// --- dragging ---------------------------------------------------------------
+function startDrag(ev) {
+  const ax = ev.target.dataset.ax;
+  if (!ax) return;
+  ev.preventDefault();
+  const x0 = ev.clientX, y0 = ev.clientY, w0 = state.w, h0 = state.h, s = state.scale;
+  state.dragging = true;
+  $("frame").classList.add("dragging");
+  $("frame").classList.remove("show-official");
+  const move = (e) => {
+    let w = ax.includes("x") ? Math.round(w0 + (e.clientX - x0) / s) : w0;
+    let h = ax.includes("y") ? Math.round(h0 + (e.clientY - y0) / s) : h0;
+    w = Math.max(60, Math.min(4000, w)); h = Math.max(40, Math.min(4000, h));
+    for (const [, cw, ch] of state.catalogue) {   // magnetic snap to real formats
+      if (Math.abs(w - cw) <= cw * 0.015 && Math.abs(h - ch) <= ch * 0.015) { w = cw; h = ch; }
+    }
+    if (w !== state.w || h !== state.h) setSize(w, h, { refit: false });
+  };
+  const up = () => {
+    removeEventListener("pointermove", move); removeEventListener("pointerup", up);
+    state.dragging = false;
+    $("frame").classList.remove("dragging");
+    syncOfficial();
+    setSize(state.w, state.h, { request: false });
+  };
+  addEventListener("pointermove", move); addEventListener("pointerup", up);
+}
+
+function syncOfficial() {
+  const on = $("official").getAttribute("aria-pressed") === "true";
+  $("frame").classList.toggle("show-official", on && !state.dragging);
+  if (on && state.out) officialRender();
+}
+
+// --- all formats ------------------------------------------------------------
+async function openGrid() {
+  const grid = $("grid");
+  grid.innerHTML = "";
+  grid.classList.add("open");
+  for (const [name, w, h] of state.catalogue) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const s = Math.min(200 / w, 200 / h);
+    card.innerHTML = `<div class="thumb"><div class="mini" style="width:${w * s}px;height:${h * s}px"></div></div>
+      <div class="label">${name}<span>${w}×${h}</span></div>`;
+    card.onclick = () => { toggle("all", false); grid.classList.remove("open"); setSize(w, h); };
+    grid.appendChild(card);
+  }
+  const cards = [...grid.children];
+  for (let i = 0; i < state.catalogue.length; i++) {
+    if (!grid.classList.contains("open")) return;
+    const [, w, h] = state.catalogue[i];
+    const res = await fetch("/api/resize", { method: "POST", body: JSON.stringify({ source: state.source, width: w, height: h }) }).then((r) => r.json());
+    const mini = cards[i].querySelector(".mini");
+    paint(mini, res.design, Math.min(200 / w, 200 / h), false);
+  }
+}
+
+function toggle(id, force) {
+  const b = $(id);
+  const on = force ?? b.getAttribute("aria-pressed") !== "true";
+  b.setAttribute("aria-pressed", on);
+  return on;
+}
+
+async function loadDesign(name, size) {
+  const task = await fetch("/api/design?name=" + encodeURIComponent(name)).then((r) => r.json());
+  state.source = task.source;
+  $("canvas")._nodes = null; $("canvas").innerHTML = "";
+  const t = size || task.target_canvas || { width: 1600, height: 400 };
+  setSize(t.width, t.height);
+  if ($("all").getAttribute("aria-pressed") === "true") openGrid();
+}
+
+async function init() {
+  const { designs, catalogue } = await fetch("/api/designs").then((r) => r.json());
+  state.catalogue = catalogue;
+  $("design").innerHTML = designs.map((d) => `<option>${d}</option>`).join("");
+  $("design").onchange = (e) => loadDesign(e.target.value);
+  $("presets").innerHTML = catalogue.map(([n, w, h]) => `<button class="chip" data-w="${w}" data-h="${h}">${n}</button>`).join("");
+  $("presets").onclick = (e) => { const c = e.target.closest(".chip"); if (c) setSize(+c.dataset.w, +c.dataset.h); };
+  $("frame").addEventListener("pointerdown", startDrag);
+  $("xray").onclick = () => { toggle("xray"); apply(); };
+  $("official").onclick = () => { toggle("official"); syncOfficial(); };
+  $("all").onclick = () => { if (toggle("all")) openGrid(); else $("grid").classList.remove("open"); };
+  addEventListener("resize", () => setSize(state.w, state.h, { request: false }));
+  await document.fonts.ready;
+  // ?design=...&w=...&h=...&xray=1 opens a bookmarked demo state
+  const q = new URLSearchParams(location.search);
+  const name = designs.includes(q.get("design")) ? q.get("design") : designs[0];
+  $("design").value = name;
+  if (q.get("xray") === "1") toggle("xray", true);
+  loadDesign(name, q.get("w") && q.get("h") ? { width: +q.get("w"), height: +q.get("h") } : null);
+}
+init();
+</script>
+</body>
+</html>

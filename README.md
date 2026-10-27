@@ -75,6 +75,10 @@ proportional fit, so the engine never crashes.
   ids, inside the canvas) with `opacity: 0`. Text also gets a transparent
   colour alpha, because the renderer does not apply element opacity to text.
   The critic only drops something when readability would otherwise suffer.
+- **Contrast relative to the source.** The pixel critic only penalises a text
+  for being harder to read than the designer made it. Judged against an
+  absolute WCAG bar, hiding deliberately subtle copy (60%-white fine print, a
+  dark-on-dark badge) would erase its penalty and beat keeping it.
 - **Missing assets** (e.g. the Level 3 watermark) are hidden instead of
   rendering a "missing asset" placeholder.
 - **No image regeneration, no copy changes, no font-family changes.** Only
@@ -106,12 +110,30 @@ emulation on Apple Silicon. So `resize()` also runs under plain QEMU
 Docker Desktop → *Use Rosetta for x86_64/amd64 emulation* so the starter's
 PNG rendering step works too.
 
+**Cross-platform text.** skia's default font is hinted on Linux (FreeType)
+and unhinted on macOS, so the same text measures up to ~8% wider at small
+sizes in the container. The engine measures each glyph as the wider of the
+two, so its line-count predictions hold whichever OS the official renderer
+runs on. Verified: every suite output produced in the Linux container shows
+no text overflow under either the Linux or the macOS renderer. Without
+this, an engine measuring on macOS overflows 23 of 144 outputs when they
+are rendered on Linux.
+
 ## How we tested it
 
 ```bash
 python -m tools.suite     # every design x 18 real formats -> output/suite/*__sheet.png contact sheets
 python -m tools.fuzz 600  # 600 random, deliberately awkward designs
+python -m tools.verify    # independent grader: the renderer's own code, not the engine's mirror
 ```
+
+`tools.verify` (needs `pip install jsonschema`, dev only) checks every output
+against the official schema and re-measures text with the **renderer's**
+font manager and wrap code: horizontal/vertical overflow, collisions
+between visible content (overlaps already present in the source count as
+intentional layering), sub-legible type, input mutation and determinism.
+Remaining findings on the suite are 6px legal fine print on small banners,
+by design.
 
 - **Suite:** 3 official samples + 5 extra designs (left-aligned text-only, two-product
   gallery with a price sticker, content card/panel, landscape source, busy event
@@ -119,6 +141,28 @@ python -m tools.fuzz 600  # 600 random, deliberately awkward designs
   320×50 mobile banner. 144 runs, 0 hard-rule violations.
 - **Fuzz:** 600 random designs (rotations, empty text, off-canvas elements, unknown
   fonts, missing assets, content-free designs). 0 crashes, 0 rule violations.
+
+## Chameleon Studio (viewer)
+
+```bash
+python -m tools.studio    # http://127.0.0.1:5051
+```
+
+A live viewer for the engine, standard library only:
+
+- **Elastic canvas.** Drag the canvas edge and the design re-lays itself out
+  as you drag, every element gliding to its new place. Sizes snap
+  magnetically to real platform formats.
+- **X-ray.** Overlays the roles the engine inferred (headline, logo, hero,
+  CTA, badge, sticker, legal...) on the live layout.
+- **Why.** The decision behind each layout: the winning template, how many
+  candidates were weighed, the pixel-checked finalists, the critic's scores
+  and what stepped aside.
+- **All formats.** The design laid out for the whole platform catalogue at
+  once. **Official render** overlays the official renderer's PNG.
+
+`?design=<name>&w=<W>&h=<H>&xray=1` opens a bookmarked state. The studio is
+not part of the scoring image (`tools/` is in `.dockerignore`).
 
 ## Layout
 
@@ -135,6 +179,6 @@ engine/
     backdrop.py        PIL backdrop rasteriser mirroring the renderer's rules
     emit.py            back to the schema + hard-rule repair
     engine.py          generate -> critique -> render-check -> emit
-tools/                 local test harness (suite, fuzz) - not shipped in the image
+tools/                 local test harness (suite, fuzz, verify) + studio viewer - not shipped in the image
 tests/designs/         extra test designs used by the suite
 ```

@@ -20,7 +20,7 @@ from . import fonts as F
 from .geometry import area, center, inter, rot_aabb, union
 
 FLOOR_ABS = {"headline": 12, "body": 9, "cta_text": 10, "cta": 9, "badge": 8, "sticker": 8,
-             "legal": 6, "group": 7}
+             "legal": 7, "group": 7}
 FLOOR_REL = {"headline": 0.028, "body": 0.016, "cta_text": 0.017, "cta": 0.016, "badge": 0.013,
              "sticker": 0.013, "legal": 0.0085, "group": 0.01}
 
@@ -139,14 +139,23 @@ class Plan:
 # Block builders
 # --------------------------------------------------------------------------
 
-def text_block(u, k, wrap_w, ctx):
+def text_block(u, k, wrap_w, ctx, max_w=None):
     el = u.text
     src = el["font_size"]
     floor = ctx.floor(u.role, src)
     fs = max(floor, int(round(src * k)), 1)
     wrap_w = max(1.0, wrap_w)
     lay = F.layout(el, fs, wrap_w)
+    if lay.overflow and max_w and max_w > wrap_w:
+        # an unbreakable word (date, URL, spaced eyebrow) may widen its box
+        # toward the full column before the type has to shrink
+        wrap_w = min(max_w, max(wrap_w, F.layout(el, fs, 1e6).width + 1.0))
+        lay = F.layout(el, fs, wrap_w)
     while lay.overflow and fs > floor:
+        fs -= 1
+        lay = F.layout(el, fs, wrap_w)
+    # still too wide at the readability floor: small beats clipped
+    while lay.overflow and fs > 4:
         fs -= 1
         lay = F.layout(el, fs, wrap_w)
     align = el.get("text_align", "left")
@@ -290,7 +299,7 @@ def unit_block(u, k, aw, ctx, rel=True):
     if u.role == "divider":
         return divider_block(u, aw, ctx, rel)
     if u.kind == "text":
-        return text_block(u, k, aw * (u.rel_w if rel else 1.0), ctx)
+        return text_block(u, k, aw * (u.rel_w if rel else 1.0), ctx, max_w=aw)
     if u.kind == "chip":
         return chip_block(u, k, aw, ctx)
     if u.kind == "image":
@@ -562,7 +571,13 @@ def tpl_row(ctx, k, drop, order="LHTC", logo_frac=0.7, inline=()):
                 slots.append(("H", _media_block(heroes, 0.3 * W, inner_h)))
             in_col.update(u.uid for u in heroes)
         elif ch == "C" and cta:
-            s = min(k * 1.1, 0.55 * inner_h / max(cta.shape["height"], 1))
+            sh_h = max(cta.shape["height"], 1)
+            # the CTA has its own slot: a run-on headline forcing k down must
+            # not take the button label below legibility with it, and on
+            # short banners the button may grow toward full height
+            legible = FLOOR_ABS["cta"] / max(cta.text["font_size"], 1)
+            cap = max(0.55 * inner_h / sh_h, min(legible, 0.95 * inner_h / sh_h))
+            s = min(max(k * 1.1, legible), cap)
             slots.append(("C", chip_block(cta, s, 0.38 * W, ctx)))
             in_col.add(cta.uid)
         elif ch == "T":
@@ -625,6 +640,57 @@ def _anchor_box(ctx, box, keep_aspect=True, scale=None):
     nx = min(max(0.0, cx - nw / 2), W - nw)
     ny = min(max(0.0, cy - nh / 2), H - nh)
     return nx, ny, nw, nh
+
+
+def _fill_alpha(e):
+    try:
+        p = str(e.get("fill_color")).split("(", 1)[1].rstrip(")").split(",")
+        a = float(p[3]) if len(p) > 3 else 1.0
+    except (IndexError, ValueError):
+        a = 1.0
+    return a * float(e.get("opacity", 1.0))
+
+
+def _clear_of(rect, occupied, ctx):
+    """Nearest position for a small decoration that keeps it off content.
+    Translucent washes may layer behind content; opaque dots and sparkles
+    sitting on a headline read as a collision. Returns rect unchanged when
+    no free spot is close by."""
+    W, H = ctx.W, ctx.H
+    x, y, w, h = rect
+
+    def hits(r):
+        return any(inter(r, o) > 0.02 * area(r) for o in occupied)
+
+    if not hits(rect):
+        return rect
+    reach = 0.3 * ctx.minwh
+    gap = 0.01 * ctx.minwh
+    for f in (1.0, 0.75, 0.55):
+        sw, sh = w * f, h * f
+        cx, cy = x + w / 2, y + h / 2
+        sx, sy = cx - sw / 2, cy - sh / 2
+        # grid around the anchor, plus snaps just outside each blocker's edges
+        step = max(4.0, 0.02 * ctx.minwh)
+        cands = [(sx + dx * step * i, sy + dy * step * i)
+                 for i in range(1, int(reach / step) + 1)
+                 for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (1, -1), (-1, 1), (1, 1))]
+        for o in occupied:
+            if inter((sx, sy, sw, sh), o) > 0:
+                cands += [(sx, o[1] - sh - gap), (sx, o[1] + o[3] + gap),
+                          (o[0] - sw - gap, sy), (o[0] + o[2] + gap, sy)]
+        best = None
+        for nx, ny in cands:
+            nx, ny = min(max(0.0, nx), W - sw), min(max(0.0, ny), H - sh)
+            dist = (nx - sx) ** 2 + (ny - sy) ** 2
+            if dist > reach ** 2 or (best is not None and dist >= best[0]):
+                continue
+            r = (nx, ny, sw, sh)
+            if not hits(r):
+                best = (dist, r)
+        if best is not None:
+            return best[1]
+    return rect
 
 
 def place_extras(plan, ctx, drop, inline=()):
@@ -691,10 +757,14 @@ def place_extras(plan, ctx, drop, inline=()):
         plan.put(b, x, y)
         plan.intended.add(frozenset((u.uid, u.attach)))
 
-    # decorations: keep their relative anchor and stay behind content
+    # decorations: keep their relative anchor and stay behind content;
+    # small opaque ones step off the content they would otherwise cover
+    content = [r for uid, role, r in plan.vis if role not in ("decoration", "panel", "accent")]
     for u in A.decorations + A.accents:
         if u.uid in drop:
             continue
+        solid = (u.role == "decoration" and area(u.box) < 0.1 * A.W0 * A.H0
+                 and max(_fill_alpha(e) for e in u.members) >= 0.3)
         if len(u.members) == 1:
             e = u.members[0]
             if e.get("type") == "shape" and e.get("shape_type") == "line":
@@ -705,6 +775,8 @@ def place_extras(plan, ctx, drop, inline=()):
                 plan.geom[e["id"]] = {"x": max(0.0, nx), "y": min(max(0.0, ny - nh / 2), H - nh), "w": max(1.0, nw), "h": nh}
                 continue
             nx, ny, nw, nh = _anchor_box(ctx, (e["x"], e["y"], e["width"], e["height"]))
+            if solid and not e.get("rotation"):
+                nx, ny, nw, nh = _clear_of((nx, ny, nw, nh), content, ctx)
             g = {"x": nx, "y": ny, "w": nw, "h": nh}
             if e.get("corner_radius"):
                 g["corner_radius"] = float(e["corner_radius"]) * nw / max(e["width"], 1e-6)
@@ -714,6 +786,10 @@ def place_extras(plan, ctx, drop, inline=()):
         else:
             nx, ny, nw, nh = _anchor_box(ctx, u.box)
             b = group_block(u, nw / max(u.box[2], 1e-6), W, ctx)
+            if solid:
+                nx, ny, cw, _ = _clear_of((nx, ny, b.w, b.h), content, ctx)
+                if cw < b.w - 0.01:
+                    b = group_block(u, cw / max(u.box[2], 1e-6), W, ctx)
             plan.put(b, nx, ny)
 
     # panels follow their children
