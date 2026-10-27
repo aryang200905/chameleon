@@ -46,15 +46,15 @@ def designs():
 
 
 def describe(name):
-    """'row/LHTC/0.32' -> 'Banner row - Logo · Hero · Text · CTA'."""
+    """'row/LHTC/0.32' -> 'Banner row: Logo · Hero · Text · CTA'."""
     parts = name.split("/")
     label = TEMPLATE_NAMES.get(parts[0], parts[0])
     if parts[0] == "row" and len(parts) > 2:
-        label += " — " + " · ".join(SLOT_NAMES.get(c, c) for c in parts[1])
+        label += ": " + " · ".join(SLOT_NAMES.get(c, c) for c in parts[1])
         if "L" in parts[1]:
             label += f" (logo {float(parts[2]):.0%})"
     elif parts[0] == "split" and len(parts) > 2:
-        label += f" — media {parts[1]}, {float(parts[2]):.0%}"
+        label += f": media {parts[1]}, {float(parts[2]):.0%}"
     return label
 
 

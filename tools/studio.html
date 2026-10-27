@@ -266,7 +266,7 @@ function paintWhy(res) {
   }).join("");
   const stepped = why.stepped_aside.length
     ? why.stepped_aside.map((s) => `<span class="pill" style="box-shadow: inset 3px 0 ${ROLE_COLORS[s.role] || "#fff"}">${s.unit} · ${s.role}</span>`).join("")
-    : `<div class="empty">Nothing — every element made it.</div>`;
+    : `<div class="empty">Nothing. Every element made it.</div>`;
   el.innerHTML = `
     <h2>Decision</h2>
     <div class="big">${why.template}</div>

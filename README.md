@@ -1,4 +1,4 @@
-# CHAMELEON — a self-critiquing layout engine
+# CHAMELEON: a self-critiquing layout engine
 
 > Any design. Every canvas. Moves the furniture, never stretches the picture.
 
@@ -81,8 +81,12 @@ proportional fit, so the engine never crashes.
   dark-on-dark badge) would erase its penalty and beat keeping it.
 - **Missing assets** (e.g. the Level 3 watermark) are hidden instead of
   rendering a "missing asset" placeholder.
+- **Backgrounds crop, never letterbox or stretch.** A full-bleed background
+  is emitted with `fit: "cover"`, whatever fit the source used. With the
+  schema's default `contain` it would shrink to a box in the middle of a
+  banner, and with `fill` its pixels would be stretched.
 - **No image regeneration, no copy changes, no font-family changes.** Only
-  position, size, font size and corner radius change.
+  position, size, font size, corner radius and a background's crop change.
 
 ## Run it
 

@@ -18,6 +18,7 @@ def _transparent(color):
 
 def emit(source, A, plan, W, H):
     out = []
+    bg_ids = {m["id"] for u in A.backgrounds for m in u.members}
     for i, el in enumerate(source["elements"]):
         e = copy.deepcopy(el)
         eid = A.order[i]
@@ -33,6 +34,10 @@ def emit(source, A, plan, W, H):
             e["font_size"] = max(1, int(g.get("font_size", n["font_size"])))
         if "corner_radius" in g and n.get("type") == "shape":
             e["corner_radius"] = round(max(0.0, g["corner_radius"]), 2)
+        if eid in bg_ids and n.get("type") == "image":
+            # a full-bleed background crops to the new shape: contain would
+            # letterbox it and fill would stretch its pixels
+            e["fit"] = "cover"
         if g.get("hidden"):
             e["opacity"] = 0.0
             if n.get("type") == "text":

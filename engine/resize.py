@@ -40,6 +40,8 @@ def _safe_fit(source: dict[str, Any], target_canvas: dict[str, Any]) -> dict[str
         w, h = float(e.get("width", 0)), float(e.get("height", 0))
         if e.get("type") in ("image", "shape") and w >= 0.9 * W0 and h >= 0.9 * H0:
             e["x"], e["y"], e["width"], e["height"] = 0.0, 0.0, W, H
+            if e.get("type") == "image":
+                e["fit"] = "cover"  # crop to the new shape, never letterbox/stretch
         else:
             nw, nh = min(w * s, W), min(h * s, H)
             e["width"], e["height"] = nw, nh
