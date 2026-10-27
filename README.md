@@ -132,8 +132,9 @@ against the official schema and re-measures text with the **renderer's**
 font manager and wrap code: horizontal/vertical overflow, collisions
 between visible content (overlaps already present in the source count as
 intentional layering), sub-legible type, input mutation and determinism.
-Remaining findings on the suite are 6px legal fine print on small banners,
-by design.
+Remaining findings on the suite (3 of 144) are the verifier's strict
+"tiny type" bar: Level 3's legal line at 11-12px on 1080px posts (its own
+source size) and a 6px eyebrow on the 160x600 skyscraper.
 
 - **Suite:** 3 official samples + 5 extra designs (left-aligned text-only, two-product
   gallery with a price sticker, content card/panel, landscape source, busy event

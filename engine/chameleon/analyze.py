@@ -247,8 +247,10 @@ def analyze(source):
 
     # ---- roles -------------------------------------------------------------
     for u in units:
-        if area(u.box) <= 0:
-            u.role = "missing"  # zero-size: nothing to show, nothing to lay out
+        if area(u.box) <= 0 and u.kind in ("shape", "image"):
+            # zero-size graphics draw nothing in the renderer; zero-size text
+            # still draws (it is not clipped to its box), so it stays content
+            u.role = "missing"
         elif u.kind == "shape":
             sh = u.shape
             thin = sh.get("shape_type") == "rectangle" and sh["height"] <= 0.012 * H0 and sh["width"] >= 0.2 * W0
